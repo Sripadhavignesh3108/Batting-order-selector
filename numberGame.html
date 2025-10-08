@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Number Flip Discs — Minimal Game</title>
+<style>
+  :root{
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --muted: #7d8590;
+    --accent: #6c63ff;
+    --accent-2: #00bfa6;
+    --disc-front: linear-gradient(135deg,#6c63ff,#8a7bff);
+    --disc-size: 88px;
+    --gap: 18px;
+    --max-width: 620px;
+    --radius: 14px;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:#12202b;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:36px;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+  }
+
+  .app {
+    width:100%;
+    max-width:var(--max-width);
+    background:var(--card);
+    border-radius:12px;
+    padding:28px;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    box-shadow:0 8px 30px rgba(17,24,39,0.06);
+  }
+
+  header {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:14px;
+  }
+  h1{
+    margin:0;
+    font-size:18px;
+    letter-spacing: -0.2px;
+  }
+  p.lead{
+    margin:0;
+    color:var(--muted);
+    font-size:13px;
+  }
+
+  /* --- initial screen --- */
+  .start-screen {
+    display:grid;
+    gap:14px;
+    align-items:start;
+    padding: 18px 0 6px;
+  }
+  label{font-size:13px;color:var(--muted)}
+  .input-row {
+    display:flex;
+    gap:12px;
+    align-items:center;
+    justify-content: center;
+  }
+  input[type="number"]{
+    width:120px;
+    padding:10px 12px;
+    font-size:15px;
+    border-radius:10px;
+    border:1px solid #e6e9ee;
+    background:transparent;
+    outline:none;
+  }
+  .btn {
+    appearance:none;
+    border:0;
+    background:var(--accent);
+    color:white;
+    padding:10px 14px;
+    font-weight:600;
+    border-radius:10px;
+    cursor:pointer;
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .btn:active{transform:translateY(1px)}
+  .btn.ghost{
+    background:transparent;
+    color:var(--accent);
+    border:1px solid rgba(108,99,255,0.12);
+  }
+  .small-note { font-size:13px; color:var(--muted) }
+
+  /* --- game screen --- */
+  .controls {
+    display:flex;
+    gap:10px;
+    margin-bottom:18px;
+  }
+  .controls .btn {
+    padding:8px 12px;
+    font-size:14px;
+    border-radius:8px;
+  }
+  .controls .btn.secondary{
+    background:transparent;
+    color:var(--muted);
+    border:1px solid #e7e9ef;
+  }
+
+  .board-wrap{
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+  }
+
+  /* responsive grid for discs */
+  .grid {
+    display:grid;
+    gap:var(--gap);
+    /* justify-content:center; */
+  }
+  /* We'll adjust columns by JS depending on count, but set sensible defaults */
+  .disc {
+    width:var(--disc-size);
+    height:var(--disc-size);
+    perspective:700px;
+  }
+  .disc-inner {
+    width:100%;
+    height:100%;
+    position:relative;
+    transform-style:preserve-3d;
+    transition: transform 500ms cubic-bezier(.2,.9,.22,1);
+    border-radius:50%;
+    cursor:pointer;
+  }
+  .disc.flipped .disc-inner {
+    transform: rotateY(180deg);
+  }
+
+  .face {
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    backface-visibility:hidden;
+    border-radius:50%;
+    color:white;
+    font-weight:700;
+    font-size:20px;
+    user-select:none;
+  }
+  .front {
+    background:var(--disc-front);
+    box-shadow: 0 10px 20px rgba(13,18,24,0.07), inset 0 -4px 12px rgba(0,0,0,0.06);
+  }
+  .back {
+    background: #ffffff;
+    color:#0b1720;
+    transform: rotateY(180deg);
+    border: 1px solid rgba(9,22,30,0.06);
+    font-size:18px;
+  }
+
+  /* small footer / instructions */
+  .meta {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    margin-top:16px;
+    color:var(--muted);
+    font-size:13px;
+  }
+
+  /* empty state */
+  .empty {
+    text-align:center;
+    padding:28px;
+    color:var(--muted);
+  }
+
+  /* subtle hover */
+  .disc .front, .disc .back {
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .disc-inner:hover ~ .nothing{}
+  @media (max-width:720px){
+    :root{--disc-size:72px; --gap:12px}
+    .input-row{flex-direction:column; align-items:flex-start}
+    input[type="number"]{width:100%}
+  }
+</style>
+</head>
+<body>
+  <div class="app" role="application" aria-label="Number flip discs game">
+    <header>
+      <div>
+        <h1>WEB WORRIORS Batting order selector</h1>
+        <p class="lead">Enter number of players, participating in this match, click to reveal your batting order number</p>
+      </div>
+    </header>
+
+    <!-- START SCREEN -->
+    <section id="start" class="start-screen" aria-hidden="false">
+      <label for="count">How many discs would you like?</label>
+      <div class="input-row">
+        <input id="count" type="number" min="1" max="120" value="12" aria-label="Number of discs"/>
+        <div>
+        <button id="continueBtn" class="btn">Continue</button>
+        <button id="randomBtn" class="btn ghost" title="Quick pick a random number">Random</button>
+        </div>
+      </div>
+      <div style="display:flex; gap:12px; align-items:center;">
+        <p class="small-note">Tip: choose between 1 and 120. Large numbers will reduce disc size.</p>
+      </div>
+      <div id="startError" class="small-note" style="color:#b00020; display:none;"></div>
+    </section>
+
+    <!-- GAME SCREEN -->
+    <section id="game" style="display:none;" aria-hidden="true">
+      <div class="controls" role="toolbar" aria-label="Game controls">
+        <button id="backBtn" class="btn secondary" title="Back to number input">← Back</button>
+        <button id="resetBtn" class="btn" title="Flip all discs back">Reset</button>
+        <button id="shuffleBtn" class="btn ghost" title="Shuffle numbers and reset">Change Order</button>
+        <div style="flex:1"></div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <div style="color:var(--muted); font-size:13px;">Discs:</div>
+          <div id="countLabel" style="font-weight:700"></div>
+        </div>
+      </div>
+
+      <div class="board-wrap">
+        <div id="grid" class="grid" aria-live="polite"></div>
+        <div id="empty" class="empty" style="display:none;">No discs to display.</div>
+      </div>
+
+      <div class="meta">
+        <div style="text-align:right">Made with ❤️</div>
+      </div>
+    </section>
+  </div>
+
+<script>
+/*
+  Single-file Number Flip Discs Game
+  - Enter number N -> creates N discs with shuffled numbers 1..N
+  - Click disc -> flip to reveal number
+  - Reset -> flip all back
+  - Change Order -> reshuffle numbers & reset
+  - Back -> return to input screen
+*/
+
+(function(){
+  const start = document.getElementById('start');
+  const game = document.getElementById('game');
+  const grid = document.getElementById('grid');
+  const empty = document.getElementById('empty');
+  const countInput = document.getElementById('count');
+  const continueBtn = document.getElementById('continueBtn');
+  const randomBtn = document.getElementById('randomBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const shuffleBtn = document.getElementById('shuffleBtn');
+  const backBtn = document.getElementById('backBtn');
+  const countLabel = document.getElementById('countLabel');
+  const startError = document.getElementById('startError');
+
+  let currentCount = 0;
+  let numbers = []; // holds the number for each cell in order
+  let flipped = []; // boolean array for flip state
+
+  // Utility: Fisher-Yates shuffle
+  function shuffle(arr){
+    for(let i = arr.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  // Create numbers 1..n randomized
+  function createNumbers(n){
+    const arr = Array.from({length:n}, (_,i) => i+1);
+    shuffle(arr);
+    return arr;
+  }
+
+  // Render grid of discs
+  function render(){
+    grid.innerHTML = '';
+    if(currentCount <= 0){
+      empty.style.display = 'block';
+      grid.style.display = 'none';
+      countLabel.textContent = '0';
+      return;
+    } else {
+      empty.style.display = 'none';
+      grid.style.display = 'flex';
+      countLabel.textContent = String(currentCount);
+    }
+
+    // choose grid columns dynamically for pleasing layout
+    const cols = computeColumns(currentCount);
+    grid.style.flexWrap = `wrap`;
+
+    // adjust disc size based on count (smaller for many discs)
+    let size = 88;
+    if (currentCount > 24) size = 64;
+    if (currentCount > 48) size = 52;
+    if (window.innerWidth < 720) {
+      // slightly smaller on mobile
+      size = Math.max(48, size - 8);
+    }
+    document.documentElement.style.setProperty('--disc-size', size + 'px');
+
+    // render each disc
+    for(let i=0;i<currentCount;i++){
+      const n = numbers[i];
+      const disc = document.createElement('div');
+      disc.className = 'disc' + (flipped[i] ? ' flipped' : '');
+      disc.setAttribute('role','button');
+      disc.setAttribute('tabindex',0);
+      disc.setAttribute('aria-pressed', flipped[i] ? 'true' : 'false');
+      disc.setAttribute('data-index', i);
+
+      const inner = document.createElement('div');
+      inner.className = 'disc-inner';
+
+      const front = document.createElement('div');
+      front.className = 'face front';
+      front.innerHTML = ''; // colored cover (no text)
+
+      const back = document.createElement('div');
+      back.className = 'face back';
+      back.innerText = n;
+
+      inner.appendChild(front);
+      inner.appendChild(back);
+      disc.appendChild(inner);
+
+      // click / keyboard to flip
+      disc.addEventListener('click', () => toggleFlip(i, disc));
+      disc.addEventListener('keydown', (e) => {
+        if(e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          toggleFlip(i, disc);
+        }
+      });
+
+      grid.appendChild(disc);
+    }
+  }
+
+  function computeColumns(n){
+    // heuristics for pleasing grid
+    if (n <= 4) return n;
+    if (n <= 9) return Math.min(5, n);
+    if (n <= 16) return 6;
+    if (n <= 24) return 8;
+    if (n <= 36) return 10;
+    if (n <= 64) return 12;
+    return 14;
+  }
+
+  function toggleFlip(index, discEl){
+    flipped[index] = !flipped[index];
+    if(flipped[index]) discEl.classList.add('flipped');
+    else discEl.classList.remove('flipped');
+    discEl.setAttribute('aria-pressed', flipped[index] ? 'true' : 'false');
+  }
+
+  function resetAll(){
+    flipped = new Array(currentCount).fill(false);
+    // animate flip-back by repaint; remove class from elements
+    const discs = grid.querySelectorAll('.disc');
+    discs.forEach(d => d.classList.remove('flipped'));
+  }
+
+  function shuffleAndReset(){
+    numbers = createNumbers(currentCount);
+    resetAll();
+    render();
+  }
+
+  // start game with given n
+  function startGame(n){
+    currentCount = n;
+    numbers = createNumbers(n);
+    flipped = new Array(n).fill(false);
+    start.style.display = 'none';
+    start.setAttribute('aria-hidden','true');
+    game.style.display = '';
+    game.setAttribute('aria-hidden','false');
+    render();
+    // focus first disc for keyboard users after tiny delay
+    setTimeout(()=> {
+      const first = grid.querySelector('.disc');
+      if(first) first.focus();
+    }, 220);
+  }
+
+  function goBack(){
+    start.style.display = '';
+    start.setAttribute('aria-hidden','false');
+    game.style.display = 'none';
+    game.setAttribute('aria-hidden','true');
+    // don't clear previous input; allow user to adjust
+  }
+
+  // event handlers
+  continueBtn.addEventListener('click', () => {
+    startError.style.display = 'none';
+    let n = Number(countInput.value) || 0;
+    if (!Number.isInteger(n) || n <= 0) {
+      startError.textContent = 'Please enter a positive whole number.';
+      startError.style.display = 'block';
+      return;
+    }
+    if (n > 120) {
+      startError.textContent = 'Please choose 120 or fewer discs for best experience.';
+      startError.style.display = 'block';
+      return;
+    }
+    startGame(n);
+  });
+
+  randomBtn.addEventListener('click', () => {
+    // random between 3 and 36 for convenience
+    const r = Math.floor(Math.random() * 34) + 3;
+    countInput.value = r;
+  });
+
+  resetBtn.addEventListener('click', () => {
+    resetAll();
+  });
+
+  shuffleBtn.addEventListener('click', () => {
+    shuffleAndReset();
+  });
+
+  backBtn.addEventListener('click', () => {
+    goBack();
+  });
+
+  // support Enter on input as continue
+  countInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      continueBtn.click();
+    }
+  });
+
+  // resize: re-render for layout adapt
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    if (game.style.display === 'none') return;
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => render(), 120);
+  });
+
+  // initialize small accessibility defaults
+  (function initDefault(){
+    countLabel.textContent = '0';
+  })();
+
+})();
+</script>
+</body>
+</html>
